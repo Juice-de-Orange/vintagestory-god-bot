@@ -1,0 +1,18 @@
+# cp .env.example .env, fill in RCON and the model endpoint, then: docker compose up -d
+services:
+  godbot:
+    build: .
+    image: vintagestory-godbot:local
+    container_name: vintagestory-godbot
+    restart: unless-stopped
+    env_file: .env
+    mem_limit: 512m
+    memswap_limit: 512m
+    volumes:
+      - ./data:/app/data
+      # The server's log directory (server-chat.log, server-main.log), read-only.
+      - ${VS_LOGS_DIR:-./logs}:/logs:ro
+    # Host networking so RCON_HOST=localhost and a model server on the host are
+    # reachable. If the game server runs in the same compose project, drop this
+    # and point RCON_HOST at its service name instead.
+    network_mode: host
