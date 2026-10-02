@@ -1,0 +1,5 @@
+target-version = "py313"
+
+[lint]
+# The rank and time-of-day ladders are written as aligned one-liners on purpose.
+ignore = ["E701"]

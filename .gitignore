@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime data
+data/
+logs/
+*.db
+*.db-wal
+*.db-shm
+*.jsonl
+
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.*
+.claude/settings.local.json
+.mcp.json
+.opensource/
