@@ -1,0 +1,31 @@
+name: Bug report
+description: Something does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Note that this project is **unmaintained**; reports are still
+        welcome and may help someone who picks it up. Security problems go through private
+        reporting instead (Security → Report a vulnerability), never a public issue.
+        Please remove RCON passwords, API keys, IPs and real player names from anything you paste.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, what happened instead?
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Vintage Story server version, VintageRCon version, model server and model.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs (redacted)
+      description: "`docker compose logs godbot` and, for actions, the lines from data/actions.jsonl."
+      render: shell
