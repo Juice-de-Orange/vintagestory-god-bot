@@ -6,6 +6,7 @@ import asyncio
 import os
 import re
 import socket
+import threading
 import struct
 from typing import Callable, Optional
 
@@ -32,7 +33,9 @@ class RCONClient:
         self.password = password
         self._socket: Optional[socket.socket] = None
         self._request_id = 0
-        self._lock = None  # set in connect()
+        # One socket, several executor threads (state polls, actions): serialise every exchange so
+        # a reply is never attributed to another thread's command.
+        self._lock = threading.RLock()
 
     def _create_packet(self, req_id: int, ptype: int, payload: str) -> bytes:
         b = payload.encode("utf-8") + b"\x00\x00"
@@ -49,48 +52,52 @@ class RCONClient:
             if not chunk:
                 raise ConnectionError("Connection closed mid-packet")
             data += chunk
-        req_id = struct.unpack("<I", data[0:4])[0]
+        # Signed: the server answers a failed login with request id -1.
+        req_id = struct.unpack("<i", data[0:4])[0]
         ptype  = struct.unpack("<I", data[4:8])[0]
         return req_id, ptype, data[8:-2].decode("utf-8", errors="replace")
 
     def connect(self) -> bool:
-        try:
-            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.settimeout(10)
-            self._socket.connect((self.host, self.port))
-            self._request_id += 1
-            self._socket.send(self._create_packet(self._request_id, 3, self.password))
-            req_id, _, _ = self._read_packet()
-            if req_id == -1:
-                print("[RCON] authentication failed")
+        with self._lock:
+            try:
+                self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self._socket.settimeout(10)
+                self._socket.connect((self.host, self.port))
+                self._request_id += 1
+                self._socket.send(self._create_packet(self._request_id, 3, self.password))
+                req_id, _, _ = self._read_packet()
+                if req_id == -1:
+                    print("[RCON] authentication failed: check RCON_PASSWORD")
+                    self.disconnect()
+                    return False
+                return True
+            except Exception as e:
+                print(f"[RCON] connection error: {e}")
+                self._socket = None
                 return False
-            return True
-        except Exception as e:
-            print(f"[RCON] connection error: {e}")
-            self._socket = None
-            return False
 
     def send_command(self, command: str) -> str:
-        if not self._socket:
-            if not self.connect():
+        with self._lock:
+            if not self._socket:
+                if not self.connect():
+                    return ""
+            try:
+                self._request_id += 1
+                self._socket.send(self._create_packet(self._request_id, 2, command))
+                _, _, payload = self._read_packet()
+                return payload
+            except Exception as e:
+                print(f"[RCON] error: {e}")
+                self._socket = None
+                if self.connect():
+                    try:
+                        self._request_id += 1
+                        self._socket.send(self._create_packet(self._request_id, 2, command))
+                        _, _, payload = self._read_packet()
+                        return payload
+                    except Exception:
+                        self._socket = None
                 return ""
-        try:
-            self._request_id += 1
-            self._socket.send(self._create_packet(self._request_id, 2, command))
-            _, _, payload = self._read_packet()
-            return payload
-        except Exception as e:
-            print(f"[RCON] error: {e}")
-            self._socket = None
-            if self.connect():
-                try:
-                    self._request_id += 1
-                    self._socket.send(self._create_packet(self._request_id, 2, command))
-                    _, _, payload = self._read_packet()
-                    return payload
-                except Exception:
-                    self._socket = None
-            return ""
 
     def disconnect(self):
         if self._socket:

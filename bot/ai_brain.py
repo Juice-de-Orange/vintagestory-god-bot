@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import traceback
 
 from openai import OpenAI
 
@@ -87,8 +86,9 @@ class DeityBrain:
             print(f"[AI] raw: {raw[:150]}")
             result = parse_reply(raw)
         except Exception as exc:  # noqa: BLE001 - a model hiccup must not kill the bot
-            print(f"[AI ERROR] {exc}")
-            traceback.print_exc()
+            # One line is enough: an unreachable endpoint would otherwise print a full traceback
+            # for every chat message.
+            print(f"[AI ERROR] {type(exc).__name__}: {exc}")
             result = dict(SILENT)
 
         history.append({"role": "assistant", "content": result.get("message") or self.t["silent"]})

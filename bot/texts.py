@@ -242,7 +242,7 @@ Notes: {player_notes}
 Active effects: {active_effects}
 
 ## RANKS (by relationship value)
-CHOSEN(>70) · FAVORED(>40) · NOTICED(>15) · CURSED(<-25) · FORSAKEN(<-60) · HATED(<-80)
+CHOSEN(≥70) · FAVORED(≥40) · NOTICED(≥15) · CURSED(≥-25) · FORSAKEN(≥-60) · HATED(below -60)
 
 ## MODE
 {mode_instruction}
