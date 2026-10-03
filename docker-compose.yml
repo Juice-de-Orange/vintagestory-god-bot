@@ -3,16 +3,21 @@ services:
   godbot:
     build: .
     image: vintagestory-godbot:local
-    container_name: vintagestory-godbot
     restart: unless-stopped
     env_file: .env
     mem_limit: 512m
     memswap_limit: 512m
     volumes:
-      - ./data:/app/data
+      # Named volume: the bot runs as uid 1000 and the image owns /app/data, so this works for any
+      # host user (a bind mount created by Docker would belong to root and SQLite could not open
+      # its file). Read the audit log with `docker compose exec godbot cat data/actions.jsonl`.
+      - godbot-data:/app/data
       # The server's log directory (server-chat.log, server-main.log), read-only.
-      - ${VS_LOGS_DIR:-./logs}:/logs:ro
+      - ${VS_LOGS_DIR:?set VS_LOGS_DIR in .env to the server's Logs directory}:/logs:ro
     # Host networking so RCON_HOST=localhost and a model server on the host are
     # reachable. If the game server runs in the same compose project, drop this
     # and point RCON_HOST at its service name instead.
     network_mode: host
+
+volumes:
+  godbot-data:

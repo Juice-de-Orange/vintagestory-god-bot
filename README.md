@@ -81,13 +81,19 @@ docker compose up -d --build
 docker compose logs -f godbot
 ```
 
+`VS_LOGS_DIR` must point at the server's `Logs` directory; compose refuses to start without it.
+Player memory and the audit log live in the named volume `godbot-data`
+(`docker compose exec godbot cat data/actions.jsonl`). The bot keeps running when RCON or the model
+endpoint is unreachable and logs one line per failed attempt; a wrong `RCON_PASSWORD` is reported
+as `[RCON] authentication failed`.
+
 Without Docker:
 
 ```bash
 python3.13 -m venv .venv && . .venv/bin/activate
 pip install -r requirements.txt
 set -a && . ./.env && set +a
-CHAT_LOG_PATH=$VS_LOGS_DIR/server-chat.log MAIN_LOG_PATH=$VS_LOGS_DIR/server-main.log python -m bot.main
+CHAT_LOG_PATH=$VS_LOGS_DIR/server-chat.log MAIN_LOG_PATH=$VS_LOGS_DIR/server-main.log python -u -m bot.main
 ```
 
 ## Configuration

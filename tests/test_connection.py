@@ -84,3 +84,54 @@ def test_outgoing_text_is_cleaned(monkeypatch):
     asyncio.run(conn.kick_player("Alice", "go\naway"))
     assert sent == ['announce <i><font color="#AA77FF">a b strongc/strong</font></i>',
                     "kick Alice go away"]
+
+
+def _rcon_server_denying_auth():
+    """Server that answers the login with request id -1, as Source RCON does for a wrong password."""
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+
+    def serve():
+        conn, _ = srv.accept()
+        with conn:
+            head = conn.recv(4)
+            length = struct.unpack("<I", head)[0]
+            data = b""
+            while len(data) < length:
+                data += conn.recv(length - len(data))
+            body = b"\x00\x00"
+            conn.sendall(struct.pack("<iii", 8 + len(body), -1, 2) + body)
+
+    threading.Thread(target=serve, daemon=True).start()
+    return srv.getsockname()[1]
+
+
+def test_wrong_password_is_reported_and_not_treated_as_connected(capsys):
+    client = RCONClient("127.0.0.1", _rcon_server_denying_auth(), "wrong")
+    assert client.connect() is False
+    assert "authentication failed" in capsys.readouterr().out
+    assert client._socket is None
+
+
+def test_concurrent_commands_get_their_own_replies():
+    """Two threads share one client; each must read the reply to its own command."""
+    replies = [""] + [f"reply-{i}" for i in range(20)]
+    port, received = _rcon_server(replies)
+    client = RCONClient("127.0.0.1", port, "secret")
+    assert client.connect()
+    results: dict[str, str] = {}
+
+    def run(i: int):
+        results[f"cmd-{i}"] = client.send_command(f"cmd-{i}")
+
+    threads = [threading.Thread(target=run, args=(i,)) for i in range(20)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    client.disconnect()
+    # The stub answers in arrival order, so command n (in arrival order) must have got reply n.
+    sent = [payload for ptype, payload in received if ptype == 2]
+    assert len(sent) == 20
+    assert [results[c] for c in sent] == [f"reply-{i}" for i in range(20)]
