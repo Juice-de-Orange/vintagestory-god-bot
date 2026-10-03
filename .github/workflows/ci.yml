@@ -37,7 +37,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: cp .env.example .env
+      # VS_LOGS_DIR is required and has no default; CI only needs a path that parses.
+      - run: |
+          cp .env.example .env
+          sed -i 's|^VS_LOGS_DIR=.*|VS_LOGS_DIR=/tmp/vs-logs|' .env
       - name: Compose file is valid
         run: docker compose config --quiet
       - name: Image builds and imports
