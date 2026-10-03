@@ -5,12 +5,13 @@ ever see the display names below.
 """
 
 # Rank keys, from best to worst. Thresholds live in config.py.
-RANKS = ("CHOSEN", "FAVORED", "NOTICED", "CURSED", "FORSAKEN", "HATED")
+RANKS = ("CHOSEN", "FAVORED", "NOTICED", "UNNOTICED", "CURSED", "FORSAKEN", "HATED")
 
 TEXTS = {
     "de": {
         "rank_names": {
             "CHOSEN": "AUSERWÄHLT", "FAVORED": "BEGÜNSTIGT", "NOTICED": "BEMERKT",
+            "UNNOTICED": "UNBEMERKT",
             "CURSED": "VERFLUCHT", "FORSAKEN": "VERWORFEN", "HATED": "GEHASST",
         },
         # Announced when a player's rank changes to one of these.
@@ -105,7 +106,7 @@ Notizen: {player_notes}
 Aktive Effekte: {active_effects}
 
 ## RÄNGE (nach Beziehungswert)
-AUSERWÄHLT(>70) · BEGÜNSTIGT(>40) · BEMERKT(>15) · VERFLUCHT(<-25) · VERWORFEN(<-60) · GEHASST(<-80)
+AUSERWÄHLT(≥70) · BEGÜNSTIGT(≥40) · BEMERKT(≥15) · UNBEMERKT(dazwischen, hier beginnt jeder) · VERFLUCHT(≤-25) · VERWORFEN(≤-60) · GEHASST(≤-80)
 
 ## MODUS
 {mode_instruction}
@@ -149,6 +150,7 @@ Wenn respond=false: message=null, actions=[], nur note optional.
     "en": {
         "rank_names": {
             "CHOSEN": "CHOSEN", "FAVORED": "FAVORED", "NOTICED": "NOTICED",
+            "UNNOTICED": "UNNOTICED",
             "CURSED": "CURSED", "FORSAKEN": "FORSAKEN", "HATED": "HATED",
         },
         "rank_announce": {
@@ -242,7 +244,7 @@ Notes: {player_notes}
 Active effects: {active_effects}
 
 ## RANKS (by relationship value)
-CHOSEN(≥70) · FAVORED(≥40) · NOTICED(≥15) · CURSED(≥-25) · FORSAKEN(≥-60) · HATED(below -60)
+CHOSEN(≥70) · FAVORED(≥40) · NOTICED(≥15) · UNNOTICED(in between, where everybody starts) · CURSED(≤-25) · FORSAKEN(≤-60) · HATED(≤-80)
 
 ## MODE
 {mode_instruction}

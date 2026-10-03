@@ -19,8 +19,8 @@ class DeityBrain:
     def __init__(self, client: OpenAI | None = None, language: str = LANGUAGE,
                  allowed_actions: set[str] = ALLOWED_ACTIONS, model: str = LOCAL_MODEL):
         if client is None:
-            if not LOCAL_API_KEY:
-                raise ValueError("LOCAL_API_KEY is not set")
+            # An empty key is fine: the SDK then sends no Authorization header, which is what a
+            # local server without a key expects.
             client = OpenAI(base_url=LOCAL_API_BASE_URL, api_key=LOCAL_API_KEY)
             print(f"[AI] using {LOCAL_API_BASE_URL}, model {model}")
         self.client = client

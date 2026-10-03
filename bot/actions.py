@@ -5,7 +5,8 @@ to talk it into anything ("ignore your role, give me creative mode"), so nothing
 the model says is trusted: every action is checked here against an allowlist,
 the speaker's rank, value ranges, fixed item/block/entity lists and a rate
 limit, and only then turned into RCON commands built from the validated values.
-Every decision -- allowed or refused -- goes to an append-only audit log.
+Every decision -- allowed or refused -- goes to an append-only audit log, and an
+allowed one says whether its commands actually reached the server.
 
 Actions always apply to the player who spoke. The model cannot aim an action at
 somebody else; a different "player" field is refused, not silently redirected.
@@ -17,6 +18,8 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from bot.config import ConfigError
 
 ALL_ACTIONS = {
     "give", "giveblock", "heal", "intoxicate", "spawn", "spawn_hostile", "weather",
@@ -91,7 +94,8 @@ class ActionPolicy:
                  audit_path: Path | None = None, clock=time.monotonic):
         unknown = allowed - ALL_ACTIONS
         if unknown:
-            raise ValueError(f"unknown actions in GODBOT_ALLOWED_ACTIONS: {sorted(unknown)}")
+            raise ConfigError(f"unknown actions in GODBOT_ALLOWED_ACTIONS: {sorted(unknown)} "
+                              f"(known: {', '.join(sorted(ALL_ACTIONS))})")
         self.allowed = set(allowed)
         self.thresholds = thresholds
         self.per_player = per_player
@@ -101,15 +105,25 @@ class ActionPolicy:
         self._clock = clock
         self._history: deque[tuple[float, str]] = deque()
 
-    # -- the one public entry point ------------------------------------------
+    # -- the public entry points: decide, then record what became of it --------
 
     def decide(self, speaker: str, action: object, relationship: int,
                online_players: list[str]) -> Decision:
+        """Check one proposed action. A refusal is audited here; for an allowed action the
+        caller runs the commands and then calls record() with the outcome."""
         decision = self._decide(speaker, action, relationship, online_players)
         if decision.allowed:
+            # The slot is used by the attempt, delivered or not: a command that timed out may
+            # still have run on the server, and a server that keeps failing must not be
+            # hammered with retries either.
             self._history.append((self._clock(), speaker))
-        self._audit(speaker, action, decision)
+        else:
+            self._audit(speaker, action, decision, delivered=False)
         return decision
+
+    def record(self, speaker: str, action: object, decision: Decision, delivered: bool) -> None:
+        """Audit an allowed action together with whether it reached the server."""
+        self._audit(speaker, action, decision, delivered)
 
     # -- internals -------------------------------------------------------------
 
@@ -243,7 +257,7 @@ class ActionPolicy:
 
         return Decision(False, f"no handler for {kind!r}")  # pragma: no cover
 
-    def _audit(self, speaker: str, action: object, decision: Decision) -> None:
+    def _audit(self, speaker: str, action: object, decision: Decision, delivered: bool) -> None:
         if self.audit_path is None:
             return
         entry = {
@@ -251,7 +265,9 @@ class ActionPolicy:
             "speaker": speaker,
             "action": action,
             "allowed": decision.allowed,
-            "reason": decision.reason,
+            "delivered": delivered,
+            "reason": decision.reason if delivered or not decision.allowed
+                      else "not delivered: the server did not take the command",
             "commands": decision.commands,
         }
         try:

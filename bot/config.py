@@ -2,6 +2,15 @@
 import os
 from pathlib import Path
 
+
+
+class ConfigError(ValueError):
+    """A setting the bot cannot start with. main() prints it in one line and exits."""
+
+
+# Exit status for a ConfigError (EX_CONFIG from sysexits.h).
+EXIT_CONFIG = 78
+
 BASE_DIR = Path(__file__).parent.parent
 DATA_DIR = Path(os.getenv("DATA_DIR", BASE_DIR / "data"))
 
@@ -12,6 +21,7 @@ RCON_PASSWORD = os.getenv("RCON_PASSWORD", "")
 
 # LLM behind an OpenAI-compatible API (llama.cpp, Ollama, LM Studio, vLLM, ...)
 LOCAL_API_BASE_URL = os.getenv("LOCAL_API_BASE_URL", "http://localhost:8080/api/v1")
+# May be empty for servers that need no key: no Authorization header is sent then.
 LOCAL_API_KEY      = os.getenv("LOCAL_API_KEY", "")
 LOCAL_MODEL        = os.getenv("LOCAL_MODEL", "gemma4:e4b")
 
@@ -35,7 +45,9 @@ PROB_RESPOND_PASSIVE   = float(os.getenv("PROB_RESPOND_PASSIVE",   "0.10"))
 MIN_SPONTANEOUS_DAYS = float(os.getenv("MIN_SPONTANEOUS_DAYS", "1"))
 MAX_SPONTANEOUS_DAYS = float(os.getenv("MAX_SPONTANEOUS_DAYS", "7"))
 
-# Divine rank thresholds (relationship -100..100)
+# Divine rank thresholds (relationship -100..100): the good ranks start at or above their
+# value, the bad ones at or below. In between (new players start at 0) the rank is UNNOTICED.
+RANK_HATED    = int(os.getenv("RANK_HATED",    "-80"))
 RANK_FORSAKEN = int(os.getenv("RANK_FORSAKEN", "-60"))
 RANK_CURSED   = int(os.getenv("RANK_CURSED",   "-25"))
 RANK_NEUTRAL  = int(os.getenv("RANK_NEUTRAL",   "15"))

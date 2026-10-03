@@ -4,12 +4,13 @@ Vintage Story god bot -- the main orchestrator.
 
 import asyncio
 import random
+import sys
 import traceback
 
 from bot.actions import ActionPolicy
 from bot.config import (
     ACTION_WINDOW_MIN, ACTIONS_PER_PLAYER, ACTIONS_TOTAL, ALLOWED_ACTIONS, DATA_DIR,
-    GOD_KEYWORDS, LANGUAGE, MAX_SPONTANEOUS_DAYS, MIN_SPONTANEOUS_DAYS,
+    EXIT_CONFIG, ConfigError, GOD_KEYWORDS, LANGUAGE, MAX_SPONTANEOUS_DAYS, MIN_SPONTANEOUS_DAYS,
     PROB_RESPOND_ADDRESSED, PROB_RESPOND_PASSIVE,
     RANK_CHOSEN, RANK_FAVORED, RANK_NEUTRAL,
 )
@@ -156,14 +157,17 @@ class GodBot:
                 return
             print(f"[ACTION] {player}: {action}")
 
-            for key, style in decision.announce:
-                await self.server.send_message(self.t[key].format(player=player), style=style)
-            for command in decision.commands:
-                await self.server.send_command(command)
-            if decision.kick_reason is not None:
-                await self.server.kick_player(player, decision.kick_reason or self.t["kick_reason"])
-            if decision.whisper:
-                await self.server.whisper(player, decision.whisper)
+            delivered = False
+            try:
+                delivered = await self._deliver(player, decision)
+            finally:
+                self.policy.record(player, action, decision, delivered)
+            if not delivered:
+                # Nothing is booked for an action the server never took: no gift, no effect,
+                # no relationship change.
+                print(f"[ACTION] not delivered to the server for {player}: {action}")
+                return
+
             if decision.gift:
                 item, amount = decision.gift
                 self.memory.record_gift(player, item, amount, "divine gift")
@@ -177,6 +181,23 @@ class GodBot:
         except Exception as e:  # noqa: BLE001
             print(f"[ACTION ERROR] {action}: {e}")
             traceback.print_exc()
+
+    async def _deliver(self, player: str, decision) -> bool:
+        """Send everything an allowed action consists of. False as soon as one part fails
+        (send_command answers None when the command did not reach the server)."""
+        for key, style in decision.announce:
+            if await self.server.send_message(self.t[key].format(player=player), style=style) is None:
+                return False
+        for command in decision.commands:
+            if await self.server.send_command(command) is None:
+                return False
+        if decision.kick_reason is not None:
+            if not await self.server.kick_player(player, decision.kick_reason or self.t["kick_reason"]):
+                return False
+        if decision.whisper:
+            if not await self.server.whisper(player, decision.whisper):
+                return False
+        return True
 
     # ------------------------------------------------------------------ #
     #  SPONTANEOUS MESSAGES                                                #
@@ -211,7 +232,12 @@ class GodBot:
 
 
 def main():
-    bot = GodBot()
+    try:
+        bot = GodBot()
+    except ConfigError as e:
+        # One line instead of a traceback: under `restart: unless-stopped` this repeats.
+        print(f"[CONFIG] {e}")
+        sys.exit(EXIT_CONFIG)
     asyncio.run(bot.run())
 
 

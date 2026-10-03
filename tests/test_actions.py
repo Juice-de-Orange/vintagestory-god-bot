@@ -112,10 +112,14 @@ def test_every_decision_is_audited(tmp_path):
     log = tmp_path / "actions.jsonl"
     p = policy(audit=log)
     p.decide("Alice", {"type": "kill"}, 0, [])
-    p.decide("Alice", {"type": "time", "hour": 0}, 0, [])
+    for delivered in (True, False):
+        action = {"type": "time", "hour": 0}
+        p.record("Alice", action, p.decide("Alice", action, 0, []), delivered)
     lines = [json.loads(line) for line in log.read_text().splitlines()]
-    assert [entry["allowed"] for entry in lines] == [False, True]
-    assert lines[1]["commands"] == ["time set midnight"]
+    assert [entry["allowed"] for entry in lines] == [False, True, True]
+    assert [entry["delivered"] for entry in lines] == [False, True, False]
+    assert lines[1]["commands"] == ["time set midnight"] and lines[1]["reason"] == "ok"
+    assert lines[2]["reason"].startswith("not delivered")
 
 
 def test_whisper_and_kick_text_is_cleaned():

@@ -4,7 +4,9 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from bot.config import RANK_FORSAKEN, RANK_CURSED, RANK_NEUTRAL, RANK_FAVORED, RANK_CHOSEN
+from bot.config import (
+    RANK_HATED, RANK_FORSAKEN, RANK_CURSED, RANK_NEUTRAL, RANK_FAVORED, RANK_CHOSEN,
+)
 
 
 def get_divine_rank(relationship: int) -> str:
@@ -12,9 +14,11 @@ def get_divine_rank(relationship: int) -> str:
     if relationship >= RANK_CHOSEN:  return "CHOSEN"
     if relationship >= RANK_FAVORED: return "FAVORED"
     if relationship >= RANK_NEUTRAL: return "NOTICED"
-    if relationship >= RANK_CURSED:  return "CURSED"
-    if relationship >= RANK_FORSAKEN:return "FORSAKEN"
-    return "HATED"
+    if relationship <= RANK_HATED:   return "HATED"
+    if relationship <= RANK_FORSAKEN:return "FORSAKEN"
+    if relationship <= RANK_CURSED:  return "CURSED"
+    # Neither liked nor disliked -- where every new player starts.
+    return "UNNOTICED"
 
 
 class PlayerMemory:
@@ -39,7 +43,7 @@ class PlayerMemory:
                         last_contact        TEXT,
                         relationship        INTEGER DEFAULT 0,
                         total_interactions  INTEGER DEFAULT 0,
-                        divine_rank         TEXT DEFAULT 'NOTICED',
+                        divine_rank         TEXT DEFAULT 'UNNOTICED',
                         session_count       INTEGER DEFAULT 0
                     )
                 """)
@@ -84,7 +88,7 @@ class PlayerMemory:
                 # Add columns that older databases do not have yet
                 for col, typedef in [
                     ("last_seen",     "TEXT"),
-                    ("divine_rank",   "TEXT DEFAULT 'NOTICED'"),
+                    ("divine_rank",   "TEXT DEFAULT 'UNNOTICED'"),
                     ("session_count", "INTEGER DEFAULT 0"),
                 ]:
                     try:
@@ -104,12 +108,12 @@ class PlayerMemory:
                 conn.execute("""
                     INSERT INTO players (name, first_seen, last_seen, last_contact, relationship,
                                         total_interactions, divine_rank, session_count)
-                    VALUES (?, ?, ?, ?, 0, 0, 'NOTICED', 0)
-                """, (name, now, now, now))
+                    VALUES (?, ?, ?, ?, 0, 0, ?, 0)
+                """, (name, now, now, now, get_divine_rank(0)))
                 conn.commit()
                 return {"name": name, "first_seen": now, "last_seen": now,
                         "last_contact": now, "relationship": 0,
-                        "total_interactions": 0, "divine_rank": "NOTICED", "session_count": 0}
+                        "total_interactions": 0, "divine_rank": get_divine_rank(0), "session_count": 0}
 
     def update_relationship(self, name: str, change: int, reason: str = None) -> tuple[str, str]:
         """Change the relationship and return (old_rank, new_rank)."""

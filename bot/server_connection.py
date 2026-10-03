@@ -8,6 +8,7 @@ import re
 import socket
 import threading
 import struct
+import time
 from typing import Callable, Optional
 
 from bot.actions import NAME_RE, clean_text
@@ -27,6 +28,10 @@ STYLES = {
 
 
 class RCONClient:
+    TIMEOUT    = 10   # seconds for a reply
+    # How long to wait for the auth response after a plain response packet (see _read_auth_response).
+    AUTH_GRACE = 1.0
+
     def __init__(self, host: str, port: int, password: str):
         self.host     = host
         self.port     = port
@@ -41,17 +46,18 @@ class RCONClient:
         b = payload.encode("utf-8") + b"\x00\x00"
         return struct.pack("<III", 4 + 4 + len(b), req_id, ptype) + b
 
-    def _read_packet(self) -> tuple:
-        raw = self._socket.recv(4)
-        if len(raw) < 4:
-            raise ConnectionError("Connection closed")
-        length = struct.unpack("<I", raw)[0]
-        data   = b""
-        while len(data) < length:
-            chunk = self._socket.recv(length - len(data))
+    def _recv_exact(self, n: int) -> bytes:
+        data = b""
+        while len(data) < n:
+            chunk = self._socket.recv(n - len(data))
             if not chunk:
-                raise ConnectionError("Connection closed mid-packet")
+                raise ConnectionError("Connection closed")
             data += chunk
+        return data
+
+    def _read_packet(self) -> tuple:
+        length = struct.unpack("<I", self._recv_exact(4))[0]
+        data   = self._recv_exact(length)
         # Signed: the server answers a failed login with request id -1.
         req_id = struct.unpack("<i", data[0:4])[0]
         ptype  = struct.unpack("<I", data[4:8])[0]
@@ -61,12 +67,11 @@ class RCONClient:
         with self._lock:
             try:
                 self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self._socket.settimeout(10)
+                self._socket.settimeout(self.TIMEOUT)
                 self._socket.connect((self.host, self.port))
                 self._request_id += 1
-                self._socket.send(self._create_packet(self._request_id, 3, self.password))
-                req_id, _, _ = self._read_packet()
-                if req_id == -1:
+                self._socket.sendall(self._create_packet(self._request_id, 3, self.password))
+                if not self._read_auth_response():
                     print("[RCON] authentication failed: check RCON_PASSWORD")
                     self.disconnect()
                     return False
@@ -76,28 +81,70 @@ class RCONClient:
                 self._socket = None
                 return False
 
-    def send_command(self, command: str) -> str:
+    def _read_auth_response(self) -> bool:
+        """Read the answer to the login; False means the password was refused.
+
+        A Source RCON server sends an empty response packet (type 0) and then the auth response
+        (type 2); other implementations send the auth response alone, or only the plain response.
+        Request id -1 is the refusal in every case. So: read until the auth response arrives, and
+        if a plain response is all that comes within AUTH_GRACE, take that as the server's answer.
+        """
+        deadline = time.monotonic() + self.TIMEOUT
+        acknowledged = False
+        try:
+            while True:
+                try:
+                    req_id, ptype, _ = self._read_packet()
+                except socket.timeout:
+                    if acknowledged:
+                        return True
+                    raise
+                if req_id == -1:
+                    return False
+                if ptype == 2:
+                    return True
+                if time.monotonic() > deadline:
+                    raise TimeoutError("no auth response")
+                acknowledged = True
+                self._socket.settimeout(self.AUTH_GRACE)
+        finally:
+            if self._socket:
+                self._socket.settimeout(self.TIMEOUT)
+
+    def _exchange(self, command: str) -> str:
+        """Send one command and return the reply that carries its request id."""
+        self._request_id += 1
+        request = self._request_id
+        self._socket.sendall(self._create_packet(request, 2, command))
+        deadline = time.monotonic() + self.TIMEOUT
+        while True:
+            req_id, ptype, payload = self._read_packet()
+            if req_id == request:
+                return payload
+            if req_id == -1 and ptype == 2:
+                raise PermissionError("authentication failed: check RCON_PASSWORD")
+            # Anything else is stale (a late packet of the login, the reply to an earlier
+            # command): drop it instead of handing it out as the answer to this command.
+            if time.monotonic() > deadline:
+                raise TimeoutError("no reply to the command")
+
+    def send_command(self, command: str) -> Optional[str]:
+        """The server's reply, or None if the command could not be delivered."""
         with self._lock:
             if not self._socket:
                 if not self.connect():
-                    return ""
+                    return None
             try:
-                self._request_id += 1
-                self._socket.send(self._create_packet(self._request_id, 2, command))
-                _, _, payload = self._read_packet()
-                return payload
+                return self._exchange(command)
             except Exception as e:
                 print(f"[RCON] error: {e}")
-                self._socket = None
+                self.disconnect()
                 if self.connect():
                     try:
-                        self._request_id += 1
-                        self._socket.send(self._create_packet(self._request_id, 2, command))
-                        _, _, payload = self._read_packet()
-                        return payload
+                        return self._exchange(command)
                     except Exception:
-                        self._socket = None
-                return ""
+                        self.disconnect()
+                return None
 
     def disconnect(self):
         if self._socket:
@@ -126,7 +173,8 @@ class VintageStoryConnection:
     def on_player_join(self, h): self._join_handlers.append(h)
     def on_player_leave(self, h): self._leave_handlers.append(h)
 
-    async def send_command(self, command: str) -> str:
+    async def send_command(self, command: str) -> Optional[str]:
+        """The server's reply, or None if the command did not reach the server."""
         print(f"[RCON] > {command[:80]}")
         loop   = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, self.rcon.send_command, command)
@@ -150,19 +198,19 @@ class VintageStoryConnection:
         return await self.send_message(message, style)
 
     async def whisper(self, player: str, message: str, style: str = "whisper"):
-        """A private message only one player sees."""
+        """A private message only one player sees. True if it reached the server."""
         if not NAME_RE.match(player or ""):
-            return
+            return False
         safe = clean_text(message)
         if not safe:
-            return
+            return False
         open_tag, close_tag = STYLES.get(style, STYLES["whisper"])
-        await self.send_command(f'tell {player} {open_tag}{safe}{close_tag}')
+        return await self.send_command(f'tell {player} {open_tag}{safe}{close_tag}') is not None
 
-    async def kick_player(self, player: str, reason: str):
+    async def kick_player(self, player: str, reason: str) -> bool:
         if not NAME_RE.match(player or ""):
-            return
-        await self.send_command(f'kick {player} {clean_text(reason, 100)}')
+            return False
+        return await self.send_command(f'kick {player} {clean_text(reason, 100)}') is not None
 
     async def trigger_tempstorm(self):
         """Triggers a temporal storm."""
@@ -199,6 +247,7 @@ class VintageStoryConnection:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
             f.seek(0, 2)
             pos = f.tell()
+            inode = os.fstat(f.fileno()).st_ino
 
         print(f"[LOG:{label}] started at offset {pos}")
         loop_n = 0
@@ -207,10 +256,13 @@ class VintageStoryConnection:
             try:
                 loop_n += 1
                 with open(path, "r", encoding="utf-8", errors="replace") as f:
+                    current = os.fstat(f.fileno()).st_ino
                     f.seek(0, 2)
                     size = f.tell()
-                    if size < pos:
-                        pos = 0
+                    # Rotated: a new file under the same name (it may already be larger than
+                    # the old offset), or the same file truncated. Start again from the top.
+                    if current != inode or size < pos:
+                        inode, pos = current, 0
                     if size > pos:
                         f.seek(pos)
                         for line in f.readlines():
