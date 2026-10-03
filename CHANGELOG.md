@@ -15,7 +15,28 @@ All notable changes to this project are documented here. The format follows
 - English voice (`GODBOT_LANGUAGE=en`) next to the original German one.
 - Unit tests, CI, Docker image that builds from a fresh clone.
 
+### Changed
+
+- New rank UNNOTICED for players between the thresholds (-24 … 14 by default),
+  where every new player starts; the prompt used to call them CURSED while the
+  database said NOTICED. The bad ranks now start *at or below* their threshold,
+  as the German prompt always described: CURSED ≤ -25, FORSAKEN ≤ -60, HATED ≤ -80
+  (new `RANK_HATED`). Before, -25 … 14 was CURSED, -60 … -26 FORSAKEN, below HATED.
+- The audit log has a `delivered` field. An allowed action that did not reach the
+  server is no longer booked (no gift row, no effect, no relationship change); it
+  still uses its rate-limit slot.
+- `LOCAL_API_KEY` may be empty (servers without a key).
+
 ### Fixed
+
+- RCON login: a server that answers with two packets (empty response, then the
+  auth response — the Source convention) shifted every later reply by one command
+  and hid a wrong password. The client now reads up to the auth response and
+  matches every reply to its request id.
+- Log rotation lost lines when the new file had already grown past the old read
+  offset; rotation is now detected by inode.
+- An unknown action in `GODBOT_ALLOWED_ACTIONS` ended in a traceback; now one
+  `[CONFIG]` line and exit status 78.
 
 - The welcome-back line after a long absence never fired: the absence was
   measured after the join had already been recorded.

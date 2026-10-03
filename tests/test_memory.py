@@ -10,13 +10,23 @@ def memory(tmp_path):
 
 
 def test_rank_ladder():
-    assert [get_divine_rank(v) for v in (90, 50, 20, 0, -40, -90)] == [
-        "CHOSEN", "FAVORED", "NOTICED", "CURSED", "FORSAKEN", "HATED"]
+    assert [get_divine_rank(v) for v in (90, 50, 20, 0, -40, -70, -90)] == [
+        "CHOSEN", "FAVORED", "NOTICED", "UNNOTICED", "CURSED", "FORSAKEN", "HATED"]
+    # The thresholds themselves belong to the named rank, on both sides of the neutral band.
+    assert [get_divine_rank(v) for v in (70, 40, 15, 14, -24, -25, -60, -80)] == [
+        "CHOSEN", "FAVORED", "NOTICED", "UNNOTICED", "UNNOTICED", "CURSED", "FORSAKEN", "HATED"]
+
+
+def test_new_player_is_stored_with_the_rank_of_its_value(memory):
+    """Issue #12: the column said NOTICED while the value 0 ranked as CURSED."""
+    created = memory.get_or_create_player("Alice")
+    stored = memory.get_or_create_player("Alice")
+    assert created["divine_rank"] == stored["divine_rank"] == get_divine_rank(0) == "UNNOTICED"
 
 
 def test_relationship_changes_report_rank_transitions(memory):
     memory.get_or_create_player("Alice")
-    assert memory.update_relationship("Alice", 20) == ("CURSED", "NOTICED")
+    assert memory.update_relationship("Alice", 20) == ("UNNOTICED", "NOTICED")
     assert memory.update_relationship("Alice", 500)[1] == "CHOSEN"
     assert memory.get_or_create_player("Alice")["relationship"] == 100, "clamped to 100"
 
