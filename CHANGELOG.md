@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-10-06
+
 ### Added
 
 - First public release of the bot as last used in April 2026: chat observer and
@@ -37,7 +39,6 @@ All notable changes to this project are documented here. The format follows
   offset; rotation is now detected by inode.
 - An unknown action in `GODBOT_ALLOWED_ACTIONS` ended in a traceback; now one
   `[CONFIG]` line and exit status 78.
-
 - The welcome-back line after a long absence never fired: the absence was
   measured after the join had already been recorded.
 - The model call no longer blocks the event loop; log tailing and state polling
