@@ -5,6 +5,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The relationship change the model attaches to its reply was booked even when the
+  reply or its actions never reached the server (RCON down): players gained or lost
+  standing for something they never saw. It is now only booked when everything the
+  deity said and did was delivered; a refused action does not hold it back.
+
 ## [0.1.0] - 2026-10-06
 
 ### Added

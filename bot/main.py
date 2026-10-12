@@ -78,14 +78,22 @@ class GodBot:
                 state=state, mode=mode,
             )
 
+            # The model's relationship change judges the whole exchange, so it is only booked if
+            # everything the deity said or did reached the server (as for the actions themselves).
+            delivered = True
             if result.get("respond") and result.get("message"):
-                await self.server.send_message(result["message"], style="divine")
+                if await self.server.send_message(result["message"], style="divine") is None:
+                    delivered = False
 
             for action in result.get("actions", []):
-                await self.execute_action(player, action, relationship, state.online_players)
+                if not await self.execute_action(player, action, relationship, state.online_players):
+                    delivered = False
 
             change = result.get("relationship_change", 0)
-            if change:
+            if change and not delivered:
+                print(f"[CHAT] relationship change {change:+d} for {player} not booked: "
+                      "the reply did not reach the server")
+            elif change:
                 await self._change_relationship(player, change)
 
             if result.get("note"):
@@ -148,13 +156,14 @@ class GodBot:
     # ------------------------------------------------------------------ #
 
     async def execute_action(self, player: str, action: object, relationship: int,
-                             online_players: list[str]):
-        """Run one model-proposed action -- only if the policy allows it."""
+                             online_players: list[str]) -> bool:
+        """Run one model-proposed action -- only if the policy allows it. False if an allowed
+        action did not reach the server (a refusal is no delivery failure)."""
         try:
             decision = self.policy.decide(player, action, relationship, online_players)
             if not decision.allowed:
                 print(f"[ACTION] refused for {player}: {decision.reason} -- {action}")
-                return
+                return True
             print(f"[ACTION] {player}: {action}")
 
             delivered = False
@@ -166,7 +175,7 @@ class GodBot:
                 # Nothing is booked for an action the server never took: no gift, no effect,
                 # no relationship change.
                 print(f"[ACTION] not delivered to the server for {player}: {action}")
-                return
+                return False
 
             if decision.gift:
                 item, amount = decision.gift
@@ -177,10 +186,12 @@ class GodBot:
             if decision.relationship:
                 await self._change_relationship(player, decision.relationship,
                                                 f"{action.get('type')} by the deity")
+            return True
 
         except Exception as e:  # noqa: BLE001
             print(f"[ACTION ERROR] {action}: {e}")
             traceback.print_exc()
+            return False
 
     async def _deliver(self, player: str, decision) -> bool:
         """Send everything an allowed action consists of. False as soon as one part fails

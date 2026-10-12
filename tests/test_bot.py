@@ -181,3 +181,40 @@ def test_unknown_action_in_the_allowlist_exits_with_one_line(tmp_path):
     assert [line for line in run.stdout.splitlines() if line.startswith("[CONFIG]")] == [
         line for line in run.stdout.splitlines() if "nuke" in line]
     assert "[CONFIG] unknown actions in GODBOT_ALLOWED_ACTIONS: ['nuke']" in run.stdout
+
+
+def test_the_models_relationship_change_waits_for_delivery(tmp_path, monkeypatch):
+    """RCON down: the reply and the gift never reached the player, so the deity's mood about
+    the exchange is not booked either. Once the server is back, the same reply counts."""
+    monkeypatch.setattr("bot.main.random.random", lambda: 0.0)
+    reply = {"respond": True, "message": "Eat.", "relationship_change": 5,
+             "actions": [{"type": "give", "item": "bread-spelt", "amount": 2}]}
+    bot, server = make_bot(tmp_path, reply)
+    _liked(bot, "Mallory")
+    server.down = True
+    asyncio.run(bot._handle_chat("Mallory", "god, we starve"))
+    assert bot.memory.get_or_create_player("Mallory")["relationship"] == 20
+    server.down = False
+    asyncio.run(bot._handle_chat("Mallory", "god, we starve"))
+    assert bot.memory.get_or_create_player("Mallory")["relationship"] == 25
+
+
+def test_a_lost_reply_alone_also_keeps_the_relationship(tmp_path, monkeypatch):
+    """No action, only words -- and the announce did not arrive: nothing is booked."""
+    monkeypatch.setattr("bot.main.random.random", lambda: 0.0)
+    bot, server = make_bot(tmp_path, {"respond": True, "message": "Begone.",
+                                      "relationship_change": -7})
+    server.down = True
+    asyncio.run(bot._handle_chat("Mallory", "god is dumb"))
+    assert bot.memory.get_or_create_player("Mallory")["relationship"] == 0
+
+
+def test_a_refused_action_does_not_hold_back_the_relationship_change(tmp_path, monkeypatch):
+    """The policy saying no is not a delivery failure: the deity's mood still counts."""
+    monkeypatch.setattr("bot.main.random.random", lambda: 0.0)
+    reply = {"respond": True, "message": "No.", "relationship_change": -3,
+             "actions": [{"type": "gamemode", "mode": "creative"}]}
+    bot, server = make_bot(tmp_path, reply)
+    asyncio.run(bot._handle_chat("Mallory", "god, give me creative"))
+    assert server.messages == [("No.", "divine")]
+    assert bot.memory.get_or_create_player("Mallory")["relationship"] == -3

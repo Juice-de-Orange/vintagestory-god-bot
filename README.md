@@ -72,7 +72,8 @@ trusts the model's output:
 - **Audit log.** Every proposed action, allowed or refused, is appended to
   `data/actions.jsonl` with the reason, and with `delivered`: whether its commands
   reached the server. An action that did not is not booked in the player memory
-  (no gift, no relationship change).
+  (no gift, no relationship change), and neither is the model's own relationship
+  change for an exchange whose reply or actions did not all arrive.
 
 Enabling the destructive actions on a public server means accepting that a clever
 player may eventually get the deity to use them on *themselves*. That is the
