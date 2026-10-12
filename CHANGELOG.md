@@ -11,6 +11,9 @@ All notable changes to this project are documented here. The format follows
   reply or its actions never reached the server (RCON down): players gained or lost
   standing for something they never saw. It is now only booked when everything the
   deity said and did was delivered; a refused action does not hold it back.
+- A number setting that is not a number (`RCON_PORT=abc`, `GODBOT_ACTIONS_TOTAL=ten`, …)
+  or a port outside 1–65535 ended in a traceback (or, for the port, in endless failed
+  connects). Now one `[CONFIG]` line per bad variable, naming it, and exit status 78.
 
 ## [0.1.0] - 2026-10-06
 

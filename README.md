@@ -102,7 +102,8 @@ Player memory and the audit log live in the named volume `godbot-data`
 (`docker compose exec godbot cat data/actions.jsonl`). The bot keeps running when RCON or the model
 endpoint is unreachable and logs one line per failed attempt; a wrong `RCON_PASSWORD` is reported
 as `[RCON] authentication failed`. A configuration the bot cannot start with (an unknown action in
-`GODBOT_ALLOWED_ACTIONS`) is one `[CONFIG] …` line and exit status 78; under compose's
+`GODBOT_ALLOWED_ACTIONS`, a number setting such as `RCON_PORT` that is not a number or out of
+range) is one `[CONFIG] …` line per problem, naming the variable, and exit status 78; under compose's
 `restart: unless-stopped` that line repeats until the `.env` is fixed.
 
 Without Docker:

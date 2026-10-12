@@ -10,7 +10,7 @@ import traceback
 from bot.actions import ActionPolicy
 from bot.config import (
     ACTION_WINDOW_MIN, ACTIONS_PER_PLAYER, ACTIONS_TOTAL, ALLOWED_ACTIONS, DATA_DIR,
-    EXIT_CONFIG, ConfigError, GOD_KEYWORDS, LANGUAGE, MAX_SPONTANEOUS_DAYS, MIN_SPONTANEOUS_DAYS,
+    ERRORS as CONFIG_ERRORS, EXIT_CONFIG, ConfigError, GOD_KEYWORDS, LANGUAGE, MAX_SPONTANEOUS_DAYS, MIN_SPONTANEOUS_DAYS,
     PROB_RESPOND_ADDRESSED, PROB_RESPOND_PASSIVE,
     RANK_CHOSEN, RANK_FAVORED, RANK_NEUTRAL,
 )
@@ -243,10 +243,14 @@ class GodBot:
 
 
 def main():
+    # One line per problem instead of a traceback: under `restart: unless-stopped` this repeats.
+    if CONFIG_ERRORS:
+        for error in CONFIG_ERRORS:
+            print(f"[CONFIG] {error}")
+        sys.exit(EXIT_CONFIG)
     try:
         bot = GodBot()
     except ConfigError as e:
-        # One line instead of a traceback: under `restart: unless-stopped` this repeats.
         print(f"[CONFIG] {e}")
         sys.exit(EXIT_CONFIG)
     asyncio.run(bot.run())
