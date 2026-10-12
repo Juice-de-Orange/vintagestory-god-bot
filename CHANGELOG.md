@@ -5,6 +5,33 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A `GODBOT_…` variable the bot does not know (a typo such as `GODBOT_LANGAUGE`)
+  gives a `[CONFIG WARNING]` line at start with the closest known name, instead of
+  being ignored without a word. Only the name is printed, never the value.
+- README sections "Backup" (a consistent copy of `players.db` with SQLite's online
+  backup, safe while the bot runs, plus the audit log), "Restore", "Updating" (from
+  v0.1.0, data kept) and "Known limitations".
+
+### Changed
+
+- The deity speaks **English by default** (`GODBOT_LANGUAGE` defaults to `en`, and
+  so does `.env.example`); an unknown language falls back to English. German is
+  still there: an existing install whose `.env` has no `GODBOT_LANGUAGE` line and
+  should keep the German voice sets `GODBOT_LANGUAGE=de` before updating (the
+  v0.1.0 `.env.example` already set it explicitly).
+
+### Fixed
+
+- The relationship change the model attaches to its reply was booked even when the
+  reply or its actions never reached the server (RCON down): players gained or lost
+  standing for something they never saw. It is now only booked when everything the
+  deity said and did was delivered; a refused action does not hold it back.
+- A number setting that is not a number (`RCON_PORT=abc`, `GODBOT_ACTIONS_TOTAL=ten`, …)
+  or a port outside 1–65535 ended in a traceback (or, for the port, in endless failed
+  connects). Now one `[CONFIG]` line per bad variable, naming it, and exit status 78.
+
 ## [0.1.0] - 2026-10-06
 
 ### Added

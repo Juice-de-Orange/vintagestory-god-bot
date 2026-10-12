@@ -36,14 +36,14 @@ it, answers, rewards or punishes. Powered by a local language model.**
   changes weather and time, whispers — within limits you set (see Safety).
 - **Lives on its own:** whispers at midnight, comments on dawn and the change of
   seasons, and drops an ominous line every few days while players are online.
-- **Speaks German or English.** German is the original voice; set
-  `GODBOT_LANGUAGE=en` for English.
+- **Speaks English or German.** English is the default; German is the original
+  voice, set `GODBOT_LANGUAGE=de` for it.
 
-An illustrative exchange (German voice):
+An illustrative exchange:
 
 ```
-[Chat] Player_One: Arathos, die Ernte ist verdorben. Hilf uns.
-Arathos: ...ich habe es gesehen. Esst. Und vergesst nicht, wer euch nährt.
+[Chat] Player_One: Arathos, the harvest has rotted. Help us.
+Arathos: ...I have seen it. Eat. And do not forget who feeds you.
          (gives Player_One 6 × bread-spelt, relationship +3)
 ```
 
@@ -72,7 +72,8 @@ trusts the model's output:
 - **Audit log.** Every proposed action, allowed or refused, is appended to
   `data/actions.jsonl` with the reason, and with `delivered`: whether its commands
   reached the server. An action that did not is not booked in the player memory
-  (no gift, no relationship change).
+  (no gift, no relationship change), and neither is the model's own relationship
+  change for an exchange whose reply or actions did not all arrive.
 
 Enabling the destructive actions on a public server means accepting that a clever
 player may eventually get the deity to use them on *themselves*. That is the
@@ -101,7 +102,8 @@ Player memory and the audit log live in the named volume `godbot-data`
 (`docker compose exec godbot cat data/actions.jsonl`). The bot keeps running when RCON or the model
 endpoint is unreachable and logs one line per failed attempt; a wrong `RCON_PASSWORD` is reported
 as `[RCON] authentication failed`. A configuration the bot cannot start with (an unknown action in
-`GODBOT_ALLOWED_ACTIONS`) is one `[CONFIG] …` line and exit status 78; under compose's
+`GODBOT_ALLOWED_ACTIONS`, a number setting such as `RCON_PORT` that is not a number or out of
+range) is one `[CONFIG] …` line per problem, naming the variable, and exit status 78; under compose's
 `restart: unless-stopped` that line repeats until the `.env` is fixed.
 
 Without Docker:
@@ -116,18 +118,101 @@ CHAT_LOG_PATH=$VS_LOGS_DIR/server-chat.log MAIN_LOG_PATH=$VS_LOGS_DIR/server-mai
 ## Configuration
 
 Everything is an environment variable; `.env.example` lists them all with
-comments. The ones you will touch:
+comments. A `GODBOT_…` variable the bot does not know (a typo, a leftover) is
+not silently ignored: the start log has a
+`[CONFIG WARNING] unknown setting GODBOT_LANGAUGE is ignored -- did you mean GODBOT_LANGUAGE?`
+line for it. The ones you will touch:
 
 | Variable | Default | |
 |---|---|---|
 | `RCON_HOST`, `RCON_PORT`, `RCON_PASSWORD` | `localhost`, `42425`, — | VintageRCon |
 | `LOCAL_API_BASE_URL`, `LOCAL_API_KEY`, `LOCAL_MODEL` | `http://localhost:8080/api/v1`, —, `gemma4:e4b` | the model; `LOCAL_API_KEY` may be empty for a server that needs no key (no `Authorization` header is sent then) |
-| `GODBOT_LANGUAGE` | `de` | `de` or `en` |
+| `GODBOT_LANGUAGE` | `en` | `en` or `de` (before v0.2 the default was `de`) |
 | `GODBOT_DEITY_NAME`, `GOD_KEYWORDS` | `Arathos`, `gott,god,herr,deity,arathos` | who it is, and what counts as addressing it |
 | `GODBOT_ALLOWED_ACTIONS` | the safe set | see Safety |
 | `PROB_RESPOND_ADDRESSED`, `PROB_RESPOND_PASSIVE` | `0.95`, `0.10` | how chatty it is |
 | `RANK_CHOSEN`, `RANK_FAVORED`, `RANK_NEUTRAL` | `70`, `40`, `15` | at or above: CHOSEN, FAVORED, NOTICED |
 | `RANK_CURSED`, `RANK_FORSAKEN`, `RANK_HATED` | `-25`, `-60`, `-80` | at or below: CURSED, FORSAKEN, HATED; in between a player is UNNOTICED |
+
+## Backup
+
+Everything the bot knows lives in the named volume `godbot-data` (`/app/data` in the
+container): `players.db` (SQLite: relationships, notes, gifts, curses and blessings,
+sessions) and `actions.jsonl` (the audit log). Do not copy `players.db` itself while the
+bot runs — the database is in WAL mode and recent writes may still sit in
+`players.db-wal`. Take a consistent copy with SQLite's online backup instead; it is safe
+while the bot is running. From the directory with `docker-compose.yml`:
+
+```bash
+docker compose exec godbot python -c "import sqlite3; b = sqlite3.connect('data/backup.db'); sqlite3.connect('data/players.db').backup(b); b.execute('PRAGMA journal_mode=DELETE'); b.close()"
+docker compose cp godbot:/app/data/backup.db ./players-backup.db
+docker compose exec -T godbot sh -c 'touch data/actions.jsonl && cat data/actions.jsonl' > actions-backup.jsonl
+```
+
+`players-backup.db` is a complete, self-contained SQLite file (open it with any SQLite
+tool); keep both files somewhere other than this host. The audit log only exists once the
+deity has decided on its first action, hence the `touch`. The intermediate copy
+`data/backup.db` stays in the volume and is overwritten by the next backup.
+
+### Restore
+
+Run from the same directory with the same `.env`. This works on a running install, after
+`docker compose down -v` and on a new host alike (the first line recreates the volume and
+the container if they are gone):
+
+```bash
+docker compose up --no-start --build
+docker compose stop godbot
+docker compose run --rm --no-deps -T godbot sh -c 'cat > data/backup.db' < players-backup.db
+docker compose run --rm --no-deps -T godbot sh -c 'cat > data/actions.jsonl' < actions-backup.jsonl
+docker compose run --rm --no-deps godbot python -c "import sqlite3; d = sqlite3.connect('data/players.db'); sqlite3.connect('data/backup.db').backup(d); d.close()"
+docker compose up -d
+```
+
+The restore goes through the bot's own user (uid 1000) so the files stay writable for
+it, and through SQLite's backup again so a leftover `players.db-wal` cannot mix with
+the restored data.
+
+## Updating
+
+Player memory and the audit log are in the volume and survive an update; the database
+needs no migration from v0.1.0. From the directory you cloned:
+
+```bash
+# 1. Back up first (see Backup).
+# 2. Fetch the new version and check out the release you want (or `git pull` to follow main).
+git fetch --tags
+git checkout v0.2.0
+# 3. Compare your .env with .env.example and read CHANGELOG.md for changed settings.
+# 4. Rebuild and restart. The volume is kept; never add -v to `docker compose down`.
+docker compose up -d --build
+docker compose logs godbot | head -20
+```
+
+Keep using the same directory (or the same `COMPOSE_PROJECT_NAME`): the volume is named
+after the compose project, so a clone in another directory starts with an empty memory.
+The start log shows `[CONFIG]` lines for settings the new version cannot use (the bot
+stops until they are fixed) and `[CONFIG WARNING]` lines for `GODBOT_…` variables it
+does not know.
+
+Coming from **v0.1.0**: the default language is now English. If your `.env` has no
+`GODBOT_LANGUAGE` line and you want to keep the German voice, add `GODBOT_LANGUAGE=de`
+(the v0.1.0 `.env.example` already contained it).
+
+## Known limitations
+
+Besides what is listed under "Not verified" at the top:
+
+- The rank ladder in the model's prompt names the default thresholds (≥70, ≥40, …).
+  Changing `RANK_*` changes the ranks the bot enforces, but not the numbers the model reads.
+- The deity's announcement of an action is sent before the action's command; if the
+  command then fails, the players have seen the announcement anyway.
+- An RCON reply that the server splits over several packets is not reassembled; only
+  the first packet is read.
+- Rate-limit counters and the per-player conversation history are kept in memory only
+  and reset on restart ([#5](https://github.com/Juice-de-Orange/vintagestory-god-bot/issues/5)).
+- The compose file uses a fixed image name, `vintagestory-godbot:local`; two installs on
+  one host share it.
 
 ## How it is built
 
