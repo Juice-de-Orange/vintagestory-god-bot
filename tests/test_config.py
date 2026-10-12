@@ -64,3 +64,15 @@ def test_the_example_env_file_raises_no_warning():
         names = {line.split("=", 1)[0] for line in f if "=" in line and not line.startswith("#")}
     assert any(n.startswith("GODBOT_") for n in names)
     assert unknown_settings(dict.fromkeys(names, "")) == []
+
+
+def test_a_new_install_speaks_english(tmp_path):
+    """No GODBOT_LANGUAGE set: English. German stays one setting away (GODBOT_LANGUAGE=de)."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GODBOT_")}
+    probe = ("from bot.config import LANGUAGE; from bot.texts import texts; "
+             "print(LANGUAGE, texts(LANGUAGE)['none'], texts('xx')['none'], texts('de')['none'])")
+    run = subprocess.run([sys.executable, "-c", probe], env=dict(env, DATA_DIR=str(tmp_path)),
+                         capture_output=True, text=True, timeout=60, cwd=REPO)
+    from bot.texts import TEXTS
+    assert run.stdout.split() == ["en", TEXTS["en"]["none"], TEXTS["en"]["none"],
+                                  TEXTS["de"]["none"]]

@@ -5,6 +5,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The deity speaks **English by default** (`GODBOT_LANGUAGE` defaults to `en`, and
+  so does `.env.example`); an unknown language falls back to English. German is
+  still there: an existing install whose `.env` has no `GODBOT_LANGUAGE` line and
+  should keep the German voice sets `GODBOT_LANGUAGE=de` before updating (the
+  v0.1.0 `.env.example` already set it explicitly).
+
 ### Added
 
 - A `GODBOT_…` variable the bot does not know (a typo such as `GODBOT_LANGAUGE`)

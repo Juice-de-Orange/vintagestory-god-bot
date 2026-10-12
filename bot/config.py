@@ -50,8 +50,8 @@ LOCAL_MODEL        = os.getenv("LOCAL_MODEL", "gemma4:e4b")
 CHAT_LOG_PATH = os.getenv("CHAT_LOG_PATH", "/logs/server-chat.log")
 MAIN_LOG_PATH = os.getenv("MAIN_LOG_PATH", "/logs/server-main.log")
 
-# Language of everything the deity says: "de" (the original voice) or "en"
-LANGUAGE = os.getenv("GODBOT_LANGUAGE", "de").lower()
+# Language of everything the deity says: "en" (the default) or "de" (the original voice)
+LANGUAGE = os.getenv("GODBOT_LANGUAGE", "en").lower()
 
 # The deity's name, and the words that count as addressing it
 DEITY_NAME   = os.getenv("GODBOT_DEITY_NAME", "Arathos")

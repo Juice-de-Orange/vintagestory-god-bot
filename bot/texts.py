@@ -289,5 +289,5 @@ If respond=false: message=null, actions=[], only note optional.
 
 
 def texts(language: str) -> dict:
-    """The text table for a language; unknown languages fall back to German."""
-    return TEXTS.get(language, TEXTS["de"])
+    """The text table for a language; unknown languages fall back to English, the default."""
+    return TEXTS.get(language, TEXTS["en"])

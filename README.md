@@ -36,14 +36,14 @@ it, answers, rewards or punishes. Powered by a local language model.**
   changes weather and time, whispers — within limits you set (see Safety).
 - **Lives on its own:** whispers at midnight, comments on dawn and the change of
   seasons, and drops an ominous line every few days while players are online.
-- **Speaks German or English.** German is the original voice; set
-  `GODBOT_LANGUAGE=en` for English.
+- **Speaks English or German.** English is the default; German is the original
+  voice, set `GODBOT_LANGUAGE=de` for it.
 
-An illustrative exchange (German voice):
+An illustrative exchange:
 
 ```
-[Chat] Player_One: Arathos, die Ernte ist verdorben. Hilf uns.
-Arathos: ...ich habe es gesehen. Esst. Und vergesst nicht, wer euch nährt.
+[Chat] Player_One: Arathos, the harvest has rotted. Help us.
+Arathos: ...I have seen it. Eat. And do not forget who feeds you.
          (gives Player_One 6 × bread-spelt, relationship +3)
 ```
 
@@ -127,7 +127,7 @@ line for it. The ones you will touch:
 |---|---|---|
 | `RCON_HOST`, `RCON_PORT`, `RCON_PASSWORD` | `localhost`, `42425`, — | VintageRCon |
 | `LOCAL_API_BASE_URL`, `LOCAL_API_KEY`, `LOCAL_MODEL` | `http://localhost:8080/api/v1`, —, `gemma4:e4b` | the model; `LOCAL_API_KEY` may be empty for a server that needs no key (no `Authorization` header is sent then) |
-| `GODBOT_LANGUAGE` | `de` | `de` or `en` |
+| `GODBOT_LANGUAGE` | `en` | `en` or `de` (before v0.2 the default was `de`) |
 | `GODBOT_DEITY_NAME`, `GOD_KEYWORDS` | `Arathos`, `gott,god,herr,deity,arathos` | who it is, and what counts as addressing it |
 | `GODBOT_ALLOWED_ACTIONS` | the safe set | see Safety |
 | `PROB_RESPOND_ADDRESSED`, `PROB_RESPOND_PASSIVE` | `0.95`, `0.10` | how chatty it is |
