@@ -1,4 +1,5 @@
 """Configuration for the god bot. Everything comes from the environment (see .env.example)."""
+import difflib
 import os
 from pathlib import Path
 
@@ -90,3 +91,24 @@ ACTIONS_TOTAL      = _number("GODBOT_ACTIONS_TOTAL", "20")
 ACTION_WINDOW_MIN  = _number("GODBOT_ACTION_WINDOW_MIN", "10", float)
 
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
+
+# Every GODBOT_ setting read above. Any other GODBOT_ variable is a typo or a leftover; it would
+# be ignored without a word, so main() warns about it (see unknown_settings).
+SETTINGS = (
+    "GODBOT_LANGUAGE", "GODBOT_DEITY_NAME", "GODBOT_ALLOWED_ACTIONS",
+    "GODBOT_ACTIONS_PER_PLAYER", "GODBOT_ACTIONS_TOTAL", "GODBOT_ACTION_WINDOW_MIN",
+)
+
+
+def unknown_settings(environ=os.environ) -> list[str]:
+    """One warning per GODBOT_ variable the bot does not read, with the closest known name.
+    Only names: the value of an unknown variable might be a secret."""
+    warnings = []
+    for name in sorted(environ):
+        if not name.upper().startswith("GODBOT_") or name in SETTINGS:
+            continue
+        # Compare without the shared prefix, or every name would look close to every other.
+        close = difflib.get_close_matches(name.upper()[7:], [s[7:] for s in SETTINGS], n=1)
+        hint = f" -- did you mean GODBOT_{close[0]}?" if close else ""
+        warnings.append(f"unknown setting {name} is ignored{hint}")
+    return warnings

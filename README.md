@@ -118,7 +118,10 @@ CHAT_LOG_PATH=$VS_LOGS_DIR/server-chat.log MAIN_LOG_PATH=$VS_LOGS_DIR/server-mai
 ## Configuration
 
 Everything is an environment variable; `.env.example` lists them all with
-comments. The ones you will touch:
+comments. A `GODBOT_…` variable the bot does not know (a typo, a leftover) is
+not silently ignored: the start log has a
+`[CONFIG WARNING] unknown setting GODBOT_LANGAUGE is ignored -- did you mean GODBOT_LANGUAGE?`
+line for it. The ones you will touch:
 
 | Variable | Default | |
 |---|---|---|

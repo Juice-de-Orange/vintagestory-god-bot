@@ -5,6 +5,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A `GODBOT_…` variable the bot does not know (a typo such as `GODBOT_LANGAUGE`)
+  gives a `[CONFIG WARNING]` line at start with the closest known name, instead of
+  being ignored without a word. Only the name is printed, never the value.
+
 ### Fixed
 
 - The relationship change the model attaches to its reply was booked even when the

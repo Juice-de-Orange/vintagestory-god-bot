@@ -12,7 +12,7 @@ from bot.config import (
     ACTION_WINDOW_MIN, ACTIONS_PER_PLAYER, ACTIONS_TOTAL, ALLOWED_ACTIONS, DATA_DIR,
     ERRORS as CONFIG_ERRORS, EXIT_CONFIG, ConfigError, GOD_KEYWORDS, LANGUAGE, MAX_SPONTANEOUS_DAYS, MIN_SPONTANEOUS_DAYS,
     PROB_RESPOND_ADDRESSED, PROB_RESPOND_PASSIVE,
-    RANK_CHOSEN, RANK_FAVORED, RANK_NEUTRAL,
+    RANK_CHOSEN, RANK_FAVORED, RANK_NEUTRAL, unknown_settings,
 )
 from bot.player_memory import PlayerMemory, get_divine_rank
 from bot.texts import texts
@@ -243,6 +243,8 @@ class GodBot:
 
 
 def main():
+    for warning in unknown_settings():
+        print(f"[CONFIG WARNING] {warning}")
     # One line per problem instead of a traceback: under `restart: unless-stopped` this repeats.
     if CONFIG_ERRORS:
         for error in CONFIG_ERRORS:
