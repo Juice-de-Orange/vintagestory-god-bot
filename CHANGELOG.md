@@ -5,6 +5,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-12
+
 ### Added
 
 - A `GODBOT_…` variable the bot does not know (a typo such as `GODBOT_LANGAUGE`)
