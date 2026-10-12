@@ -5,6 +5,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A `GODBOT_…` variable the bot does not know (a typo such as `GODBOT_LANGAUGE`)
+  gives a `[CONFIG WARNING]` line at start with the closest known name, instead of
+  being ignored without a word. Only the name is printed, never the value.
+- README sections "Backup" (a consistent copy of `players.db` with SQLite's online
+  backup, safe while the bot runs, plus the audit log), "Restore", "Updating" (from
+  v0.1.0, data kept) and "Known limitations".
+
 ### Changed
 
 - The deity speaks **English by default** (`GODBOT_LANGUAGE` defaults to `en`, and
@@ -12,12 +21,6 @@ All notable changes to this project are documented here. The format follows
   still there: an existing install whose `.env` has no `GODBOT_LANGUAGE` line and
   should keep the German voice sets `GODBOT_LANGUAGE=de` before updating (the
   v0.1.0 `.env.example` already set it explicitly).
-
-### Added
-
-- A `GODBOT_…` variable the bot does not know (a typo such as `GODBOT_LANGAUGE`)
-  gives a `[CONFIG WARNING]` line at start with the closest known name, instead of
-  being ignored without a word. Only the name is printed, never the value.
 
 ### Fixed
 
