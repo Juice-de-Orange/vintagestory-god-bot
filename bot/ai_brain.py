@@ -3,7 +3,7 @@
 import asyncio
 import json
 
-from openai import OpenAI
+from openai import OpenAI, omit
 
 from bot.actions import prompt_actions
 from bot.config import (
@@ -18,10 +18,14 @@ SILENT = {"respond": False, "message": None, "note": None, "relationship_change"
 class DeityBrain:
     def __init__(self, client: OpenAI | None = None, language: str = LANGUAGE,
                  allowed_actions: set[str] = ALLOWED_ACTIONS, model: str = LOCAL_MODEL):
+        # An empty key is fine: no Authorization header is sent then, which is what a local
+        # server without a key expects. openai>=3 refuses an empty key and only drops the header
+        # when a request omits it explicitly, so the client gets a placeholder that is never sent.
+        self._extra_headers = None
         if client is None:
-            # An empty key is fine: the SDK then sends no Authorization header, which is what a
-            # local server without a key expects.
-            client = OpenAI(base_url=LOCAL_API_BASE_URL, api_key=LOCAL_API_KEY)
+            client = OpenAI(base_url=LOCAL_API_BASE_URL, api_key=LOCAL_API_KEY or "unused")
+            if not LOCAL_API_KEY:
+                self._extra_headers = {"Authorization": omit}
             print(f"[AI] using {LOCAL_API_BASE_URL}, model {model}")
         self.client = client
         self.model = model
@@ -81,6 +85,7 @@ class DeityBrain:
             resp = await asyncio.to_thread(
                 self.client.chat.completions.create,
                 model=self.model, max_tokens=500, temperature=0.9, messages=messages,
+                extra_headers=self._extra_headers,
             )
             raw = (resp.choices[0].message.content or "").strip()
             print(f"[AI] raw: {raw[:150]}")
