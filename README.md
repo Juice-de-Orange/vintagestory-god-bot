@@ -4,6 +4,8 @@
 every player, builds a relationship with each of them — and, when it feels like
 it, answers, rewards or punishes. Powered by a local language model.**
 
+Built with AI assistance.
+
 > **Status: unmaintained.** Last changed in April 2026 against the Vintage Story
 > release current at the time (`devidian/vintagestory:latest` with the
 > VintageRCon mod); the exact game version was not recorded, and the bot has not
@@ -92,6 +94,7 @@ point of a moody god — decide for your community.
 ## Quick start
 
 ```bash
+git clone https://github.com/Juice-de-Orange/vintagestory-god-bot.git && cd vintagestory-god-bot
 cp .env.example .env     # RCON, model endpoint, VS_LOGS_DIR, language, allowed actions
 docker compose up -d --build
 docker compose logs -f godbot
