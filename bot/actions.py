@@ -260,6 +260,12 @@ class ActionPolicy:
     def _audit(self, speaker: str, action: object, decision: Decision, delivered: bool) -> None:
         if self.audit_path is None:
             return
+        commands = list(decision.commands)
+        if decision.whisper:
+            # Sent through ServerConnection.whisper, not as one of `commands`; without this
+            # line the entry of a delivered whisper read "commands": []. The VTML colour
+            # markup around the text is left out.
+            commands.append(f"tell {speaker} {decision.whisper}")
         entry = {
             "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
             "speaker": speaker,
@@ -268,7 +274,7 @@ class ActionPolicy:
             "delivered": delivered,
             "reason": decision.reason if delivered or not decision.allowed
                       else "not delivered: the server did not take the command",
-            "commands": decision.commands,
+            "commands": commands,
         }
         try:
             self.audit_path.parent.mkdir(parents=True, exist_ok=True)

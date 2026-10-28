@@ -122,6 +122,15 @@ def test_every_decision_is_audited(tmp_path):
     assert lines[2]["reason"].startswith("not delivered")
 
 
+def test_the_audit_names_the_whisper_that_was_sent(tmp_path):
+    log = tmp_path / "actions.jsonl"
+    p = policy(audit=log)
+    action = {"type": "whisper", "message": "psst"}
+    p.record("Alice", action, p.decide("Alice", action, 0, []), True)
+    entry = json.loads(log.read_text())
+    assert entry["commands"] == ["tell Alice psst"]
+
+
 def test_whisper_and_kick_text_is_cleaned():
     p = policy(SAFE | {"kick"}, per_player=9)
     d = p.decide("Alice", {"type": "whisper", "message": 'hi <font color="red">x</font>\nannounce boo'}, 0, [])
