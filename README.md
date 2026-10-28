@@ -210,6 +210,10 @@ Besides what is listed under "Not verified" at the top:
   Changing `RANK_*` changes the ranks the bot enforces, but not the numbers the model reads.
 - The deity's announcement of an action is sent before the action's command; if the
   command then fails, the players have seen the announcement anyway.
+- The deity's reply is written by the model together with the actions it proposes, and is
+  sent before the policy checks them. A refused action (not enabled, rank too low, rate
+  limit) is not taken back in the reply: the deity may say "As you wish." to a `gamemode`
+  that never runs. The refusal is only in the bot's log and in `actions.jsonl`.
 - An RCON reply that the server splits over several packets is not reassembled; only
   the first packet is read.
 - Rate-limit counters and the per-player conversation history are kept in memory only
